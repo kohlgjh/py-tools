@@ -44,26 +44,38 @@ def main():
         # make entry if it doesn't exist yet
         record[playlist.title] = {}
 
+    # make dictionary of windows explorer unfriendly replacements
+    replace_dict = {'\\':'', '/':'', ':':'-', '*':'', '?':'', '"':'', '>':'',
+                    '<':'', '|':''}
+
     # loop through videos in playlist
     for i, video in enumerate(playlist.videos):
+
+        video_title = video.title
+        for key, value in replace_dict.items():
+            # correct any problematic characters in video title
+            video_title = video_title.replace(key, value)
+
         # check record to see if the video has been downloaded before
-        if video.title in record[playlist.title].keys():
+        if video_title in record[playlist.title].keys():
             continue
         try:
             # if it hasn't been downloaded then download it
             stream = video.streams.get_audio_only('mp4')
-            stream.download(join(audio_output_dir, playlist.title + '\mp4'))
+            stream.download(join(audio_output_dir, playlist.title + '\mp4'), filename=video_title+'.mp4')
+
+            print(f'playlist_download_audio.py - Finished downloading {video_title}')
 
             # update the records
-            record[playlist.title][video.title] = playlist.video_urls[i]
+            record[playlist.title][video_title] = playlist.video_urls[i]
 
             # grab the thumbnail to use as album art
             thumbnail = requests.get(video.thumbnail_url).content
-            with open(join(art_path, video.title+'.jpg'), 'wb') as handler:
+            with open(join(art_path, video_title+'.jpg'), 'wb') as handler:
                 handler.write(thumbnail)
 
         except:
-            print(f'ERROR: Unable to download {video.title}')
+            print(f'ERROR: Unable to download {video_title}')
 
     # save the record dict to json
     with open(json_dir, 'w') as json_file:
@@ -73,18 +85,18 @@ def main():
     mp4_dir = join(audio_output_dir, playlist.title + '\mp4')
 
     for i, file in enumerate(os.listdir(mp4_dir)):
+
         # split the name from file extension
-        name = splitext(file)[0]
-        print(join(audio_output_dir, playlist.title, name + '.mp3'))
+        name = str(splitext(file)[0])
 
         # convert mp4 to mp3
         mp4_to_mp3(join(mp4_dir,file), join(audio_output_dir, playlist.title, name + '.mp3'))
 
+        # add the album art and edit metadata
+        edit_mp3_data(join(audio_output_dir, playlist.title, name + '.mp3'), join(art_path, name + '.jpg'), name)
+
         # remove the mp4 file
         os.remove(join(mp4_dir,file))
-
-        # add the album art and edit metadata
-        edit_mp3_data(join(audio_output_dir, playlist.title, name + '.mp3'), join(art_path, name, + '.jpg'), name)
 
 if __name__ == '__main__':
     main()
